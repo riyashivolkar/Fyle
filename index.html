@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GitHub Profile</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f8f9fa;
+        color: #333;
+      }
+
+      .container {
+        margin-top: 20px;
+      }
+
+      .text-center {
+        text-align: center;
+      }
+
+      .rounded-circle {
+        width: 150px;
+        height: 150px;
+        border: 4px solid #fff;
+      }
+
+      h2 {
+        margin-top: 10px;
+        font-size: 1.8rem;
+      }
+
+      .mt-4 {
+        margin-top: 20px;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-control {
+        width: 100%;
+      }
+
+      .profile-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .user-info {
+        flex: 1;
+        margin-left: 20px;
+      }
+
+      #repoContainer {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        grid-gap: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        background-color: #fff;
+        font-size: 1rem;
+      }
+
+      .repo-card {
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        box-sizing: border-box;
+        width: auto;
+        font-size: 0.9rem;
+      }
+
+      .repo-card h4 {
+        margin-bottom: 10px;
+        color: #007bff;
+        font-size: 1.1rem;
+      }
+
+      .repo-card p {
+        margin-bottom: 5px;
+      }
+
+      .pagination {
+        margin: 20px 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .pagination a,
+      .pagination button {
+        width: 32px;
+        height: 32px;
+        border: 1px solid #ddd;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-decoration: none;
+        color: #333;
+        font-weight: bold;
+        margin: 0 4px;
+        transition: background-color 0.3s;
+      }
+
+      .pagination a:hover,
+      .pagination button:hover {
+        background-color: #f1f1f1;
+      }
+
+      .pagination a.active,
+      .pagination button.active {
+        background-color: #007bff;
+        color: #fff;
+        border: 1px solid #007bff;
+      }
+
+      .pagination .ellipsis-link {
+        pointer-events: none;
+        cursor: default;
+      }
+
+      .pagination .ellipsis-link:hover {
+        background-color: transparent;
+      }
+
+      .pagination .ellipsis {
+        padding: 0 4px;
+        font-weight: bold;
+      }
+      .languages {
+        border: 1px solid #007bff;
+        border-radius: 8px;
+        box-sizing: border-box;
+        color: white;
+        background-color: #007bff;
+        padding: 5px;
+        width: 46%;
+      }
+      .repo-card:not(:has(.languages)) .languages {
+        background-color: white;
+        border: none;
+      }
+
+      /* Responsive styles */
+      @media (max-width: 576px) {
+        .rounded-circle {
+          width: 100px;
+          height: 100px;
+        }
+
+        h2 {
+          font-size: 1.5rem;
+        }
+
+        .repo-card {
+          font-size: 0.8rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container mt-4">
+      <div class="text-center profile-info">
+        <img
+          id="avatar"
+          class="img-fluid rounded-circle"
+          alt="Profile Picture"
+        />
+        <div class="user-info">
+          <h2 id="username"></h2>
+          <p id="bio"></p>
+          <p id="location"></p>
+          <p id="description" class="text-xs"></p>
+          <p id="twitterLink"></p>
+          <p id="links"></p>
+        </div>
+      </div>
+
+      <h2 class="mt-4">GitHub Repositories</h2>
+
+      <div class="form-group">
+        <input
+          type="text"
+          id="searchInput"
+          class="form-control"
+          placeholder="Search repositories"
+        />
+      </div>
+
+      <div id="repoContainer"></div>
+
+      <div id="pagination" class="mt-4"></div>
+
+      <div id="loader" class="text-center"></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      const apiUrl = "https://api.github.com/users/{username}";
+      let currentPage = 1;
+      let reposPerPage = 6;
+      let repositories = [];
+      const maxVisiblePages = 6;
+
+      function fetchProfile(username) {
+        const url = apiUrl.replace("{username}", username);
+
+        axios
+          .get(url)
+          .then((response) => {
+            displayProfile(response.data);
+            fetchRepositories(username);
+          })
+          .catch((error) => {
+            console.error("Error fetching user profile:", error);
+          });
+      }
+
+      function fetchRepositories(username) {
+        const repoUrl =
+          apiUrl.replace("{username}", username) +
+          `/repos?page=${currentPage}&per_page=${reposPerPage}`;
+
+        $("#loader").html('<div class="loader"></div>');
+
+        axios
+          .get(repoUrl)
+          .then((response) => {
+            displayRepositories(response.data);
+            updatePaginationButtons(response.headers["link"]);
+          })
+          .catch((error) => {
+            console.error("Error fetching repositories:", error);
+            $("#repoContainer").html(
+              '<div class="alert alert-danger">Error fetching repositories</div>'
+            );
+            updatePaginationButtons("");
+          })
+          .finally(() => {
+            $("#loader").empty();
+          });
+      }
+
+      function displayProfile(profile) {
+        $("#avatar").attr("src", profile.avatar_url);
+        $("#username").text(profile.login);
+        $("#bio").text(profile.bio);
+
+        const twitterMatch = profile.bio.match(/https:\/\/twitter\.com\/\w+/);
+        const twitterLink = twitterMatch
+          ? `<a href="${twitterMatch[0]}" target="_blank">Twitter</a>`
+          : "";
+
+        $("#location").text(`📍 ${profile.location}`);
+        $("#description").html(`Company ${profile.company} ${twitterLink}`);
+
+        const links = `<a href="${profile.html_url}" target="_blank">GitHub-Profile</a>`;
+        $("#links").html(links);
+      }
+
+      function displayRepositories(repositories) {
+        const repoContainer = $("#repoContainer");
+        repoContainer.empty();
+
+        repositories.forEach((repo) => {
+          const languages = repo.language
+            ? `<p class="languages"><strong></strong> ${repo.language}</p>`
+            : "";
+          const card = `
+            <div class="repo-card">
+              <h4>${repo.name}</h4>
+              <p>${repo.description}</p>
+              ${languages}
+              <p><strong>Link:</strong> <a href="${repo.html_url}" target="_blank">View on GitHub</a></p>
+            </div>
+          `;
+          repoContainer.append(card);
+        });
+      }
+
+      function updatePaginationButtons(linkHeader) {
+        const pagination = $("#pagination");
+        pagination.empty();
+
+        if (linkHeader) {
+          const links = parseLinkHeader(linkHeader);
+
+          if (currentPage > maxVisiblePages) {
+            pagination.append(
+              '<a class="ellipsis-link" href="#" onclick="changePage(\'&laquo;\')">&laquo;</a>'
+            );
+          }
+
+          for (
+            let i = Math.max(1, currentPage - 5);
+            i <= Math.min(links.last, currentPage + 5);
+            i++
+          ) {
+            const activeClass = i === currentPage ? "active" : "";
+            const button = `<a class="${activeClass}" href="#" onclick="changePage(${i})">${i}</a>`;
+            pagination.append(button);
+          }
+
+          if (currentPage < links.last - maxVisiblePages + 1) {
+            pagination.append(
+              '<a class="ellipsis-link" href="#" onclick="changePage(\'&raquo;\')">&raquo;</a>'
+            );
+          }
+        }
+      }
+      function changePage(page) {
+        if (page === "&laquo;") {
+          currentPage = Math.max(currentPage - maxVisiblePages, 1);
+        } else if (page === "&raquo;") {
+          currentPage = Math.min(
+            currentPage + maxVisiblePages,
+            repositories.last
+          );
+        } else {
+          currentPage = page;
+        }
+        fetchRepositories("jongalloway");
+      }
+      function parseLinkHeader(linkHeader) {
+        const links = {};
+        linkHeader.split(",").forEach((part) => {
+          const section = part.split(";");
+          if (section.length < 2) {
+            return;
+          }
+          const url = section[0].replace(/<|>/g, "").trim();
+          const name = section[1].replace(/rel="|"| /g, "").trim();
+          const match = url.match(/page=(\d+)/);
+          if (match) {
+            links[name] = +match[1];
+          }
+        });
+        return links;
+      }
+
+      fetchProfile("jongalloway");
+
+      function searchRepositories() {
+        const searchTerm = $("#searchInput").val().toLowerCase();
+        const repoContainer = $("#repoContainer");
+
+        repoContainer.find(".repo-card").each(function () {
+          const card = $(this);
+          const repoName = card.find("h4").text().toLowerCase();
+          if (repoName.includes(searchTerm)) {
+            card.show();
+          } else {
+            card.hide();
+          }
+        });
+      }
+
+      $("#searchInput").on("input", searchRepositories);
+    </script>
+  </body>
+</html>
